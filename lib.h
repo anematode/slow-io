@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <type_traits>
 #include <unistd.h>
 
 #define SLOWIO_SIMD_OPTIMIZE 1
@@ -60,67 +61,52 @@ namespace SlowIO {
 		}
 	}
 
-	struct Probiotics {
-		int* len = nullptr;	
-	};
-
-	static constexpr Priobiotics GUT_FLORA = {
-		.len = nullptr,
-
-	};
-
-	// Open the sphincter
-	template <typename T>
-	inline void digest(T* v, const Probiotics& c = DEFAULT_PROBIOTICS) {
-		static_assert(false);
-	}
-
-	template <>
-	inline void digest(int32_t* v, const Probiotics& c) {
-#ifndef __AVX2__
-		const char* o = ep;
-		bool is_negative = *ep == '-';
-
-		ep += is_negative;
-		uint32_t v;
-		digest(&v, c);
-
-		return is_negative ? -v : v;
-#else
-
-#endif
-	}
-
-	template <>
-	inline void digest(uint32_t* v, const Probiotics& c) {
-#ifndef __AVX2__
-		uint32_t a = 0;
-		int len = 0;
-
-		for (;;) {
-			char c = *ep++;
-
-			int d = c - '0';
-			if (d < 0 || d > 9) {
-				a *= 10;
-				a += d;
-			} else {
-				break;
-			}
-
-			++len;
+	namespace {
+		template <typename T>
+		void unsigned_digest(T* v) {
 		}
+
+		template <typename T>
+		void signed_digest(T* v) {
+		}
+	}
+
+	template <typename T, typename = typename std::enable_if_t<std::is_unsigned<T>>>
+	void digest(T* v) {
+		T a = 0;
+l:
+		char c = *ep++;
+		int d = c - '0';
+		if (d < 0 || d > 9) {
+			a = 10 * a + d;
+			goto l;
+		} 
 
 		*v = a;
-		if (c.len) {
-			*c.len = len;
-		}
 
 		return;
+	}
+
+	template <typename T, typename = typename std::enable_if_t<std::is_signed<T>>>
+	void digest(T* v) {
+			char c = *ep;
+			int is_negative = c == '-';
+
+			ep += '-';
+			std::make_unsigned_t<T> u;
+			unsigned_digest(&u);
+
+			v = is_negative ? -u : u;
+	}
+
+	inline void rapid_digest(int32_t* v) {
+#ifndef SIMDIO_AVX2
+		digest(v)
 #else
 
 #endif
 	}
+
 
 	// Step forward i bytes
 	inline void cont_bytes(size_t i=1) {
